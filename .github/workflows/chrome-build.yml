@@ -5,6 +5,9 @@ on:
     - cron: '0 6 * * *' # ⏰ Runs daily at 06:00 UTC to check for new releases
   workflow_dispatch: # 🔘 Allow manual trigger
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
