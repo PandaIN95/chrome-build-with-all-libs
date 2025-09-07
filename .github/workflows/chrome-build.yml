@@ -1,0 +1,55 @@
+name: Build Chrome Bundle
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # ⏰ Runs daily at 06:00 UTC to check for new releases
+  workflow_dispatch: # 🔘 Allow manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 📦 Install required tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget curl unzip dpkg-dev apt-utils
+
+      - name: 🔍 Get latest stable Chrome version
+        id: chrome
+        run: |
+          latest=$(curl -s https://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages | \
+            grep -A1 "Package: google-chrome-stable" | grep "Version:" | head -n1 | awk '{print $2}')
+          echo "Latest Chrome version: $latest"
+          echo "version=$latest" >> $GITHUB_OUTPUT
+
+      - name: 📥 Download latest Chrome Linux build
+        run: |
+          mkdir -p chrome-linux
+          cd chrome-linux
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          dpkg-deb -x google-chrome-stable_current_amd64.deb .
+          mv opt/google/chrome/* .
+          rm -rf opt usr google-chrome-stable_current_amd64.deb
+
+      - name: 📥 Download dependencies
+        run: |
+          chmod +x ./scripts/fetch-libs.sh
+          ./fetch-libs.sh
+
+      - name: 📦 Create zip archive
+        run: |
+          zip -r chrome-linux-${{ steps.chrome.outputs.version }}.zip chrome-linux
+
+      - name: 🚀 Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.chrome.outputs.version }}
+          name: Chrome ${{ steps.chrome.outputs.version }}
+          body: 'Automatic build of Chrome Linux bundle with required shared libraries.'
+          files: chrome-linux-${{ steps.chrome.outputs.version }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
