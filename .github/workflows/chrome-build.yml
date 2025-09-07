@@ -38,7 +38,7 @@ jobs:
       - name: 📥 Download dependencies
         run: |
           chmod +x ./scripts/fetch-libs.sh
-          ./fetch-libs.sh
+          ./scripts/fetch-libs.sh
 
       - name: 📦 Create zip archive
         run: |
