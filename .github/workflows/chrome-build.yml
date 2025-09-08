@@ -5,9 +5,6 @@ on:
     - cron: '0 6 * * *' # ⏰ Runs daily at 06:00 UTC to check for new releases
   workflow_dispatch: # 🔘 Allow manual trigger
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,7 +25,7 @@ jobs:
           sudo apt-get update
 
           # Install required tools
-          sudo apt-get install -y wget curl unzip dpkg-dev apt-utils software-properties-common libatk1.0-0 libatk-bridge2.0-0
+          sudo apt-get install -y wget curl unzip dpkg-dev apt-utils software-properties-common
 
       - name: 🔍 Get latest stable Chrome version
         id: chrome
@@ -49,41 +46,56 @@ jobs:
 
       - name: 📥 Download dependencies with improved method
         run: |
+          # First, ensure all required packages are installed on the system
+          # Handle both old package names and new t64 variants
+          echo "📦 Installing required packages on system..."
+
+          # Install packages - trying both old and t64 variants where applicable
+          for pkg in libatk1.0-0 libatk-bridge2.0-0 libcups2 libgbm1 \
+                     libgtk-3-0 libasound2 libnss3 libxshmfence1 \
+                     libdrm2 libdbus-1-3 libglib2.0-0 libgdk-pixbuf-2.0-0 \
+                     libpango-1.0-0 libpangocairo-1.0-0 libcurl4 \
+                     libxcomposite1 libxdamage1 libxrandr2 libx11-6 \
+                     libxext6 libexpat1 libxi6 libxrender1 libcairo2 \
+                     libudev1 libpcre3 libxcb1 libxkbcommon0 \
+                     libatspi2.0-0 libavahi-common3 libavahi-client3; do
+            # Try regular package name first
+            sudo apt-get install -y "$pkg" 2>/dev/null || \
+            # If that fails, try with t64 suffix
+            sudo apt-get install -y "${pkg}t64" 2>/dev/null || \
+            # If both fail, that's okay - package might not exist or have different name
+            true
+          done
+
           # Make script executable
           chmod +x ./scripts/fetch-libs.sh
 
-          # Run the script with sudo to ensure proper permissions
+          # Run the script (it will now be able to access installed packages)
           sudo ./scripts/fetch-libs.sh
 
-          # Alternative: Install dependencies and copy libs
-          # This is a fallback method if the script fails
-          if [ ! -d "chrome-linux/lib" ] || [ -z "$(ls -A chrome-linux/lib 2>/dev/null)" ]; then
-            echo "⚠️ fetch-libs.sh didn't populate libs, using fallback method..."
+          # Verify we have libraries
+          lib_count=$(find chrome-linux/lib -name "*.so*" 2>/dev/null | wc -l)
+          echo "📊 Found $lib_count library files in chrome-linux/lib"
+
+          if [ "$lib_count" -lt 10 ]; then
+            echo "❌ ERROR: Too few libraries collected (only $lib_count)"
+            echo "📋 Attempting emergency fallback..."
             
             mkdir -p chrome-linux/lib
             
-            # Install all required packages
-            sudo apt-get install -y \
-              libatk1.0-0 libatk-bridge2.0-0 libcups2 libgbm1 \
-              libgtk-3-0 libasound2 libnss3 libxshmfence1 \
-              libdrm2 libdbus-1-3 libglib2.0-0 libgdk-pixbuf-2.0-0 \
-              libpango-1.0-0 libpangocairo-1.0-0 libcurl4 \
-              libxcomposite1 libxdamage1 libxrandr2 libx11-6 \
-              libxext6 libexpat1 libxi6 libxrender1 libcairo2 \
-              libudev1 libpcre3 libxcb1 libxkbcommon0 \
-              libatspi2.0-0 libavahi-common3 libavahi-client3 || true
-            
-            # Copy installed libraries
-            for lib in /usr/lib/x86_64-linux-gnu/*.so*; do
-              if [ -f "$lib" ]; then
-                cp -L "$lib" chrome-linux/lib/ 2>/dev/null || true
+            # Direct copy from system as last resort
+            for dir in /usr/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu; do
+              if [ -d "$dir" ]; then
+                echo "Copying from $dir..."
+                find "$dir" -maxdepth 1 -name "*.so*" -type f | while read -r lib; do
+                  cp -L "$lib" chrome-linux/lib/ 2>/dev/null || true
+                done
               fi
             done
+            
+            lib_count=$(find chrome-linux/lib -name "*.so*" 2>/dev/null | wc -l)
+            echo "📊 After fallback: $lib_count library files"
           fi
-
-          # Verify we have some libraries
-          lib_count=$(find chrome-linux/lib -name "*.so*" 2>/dev/null | wc -l)
-          echo "📊 Found $lib_count library files in chrome-linux/lib"
 
       - name: 🔍 List Chrome dependencies (for debugging)
         run: |
