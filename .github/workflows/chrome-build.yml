@@ -2,7 +2,7 @@ name: Build Chrome Bundle
 
 on:
   schedule:
-    - cron: '0 6 * * *' # ⏰ Runs daily at 06:00 UTC to check for new releases
+    - cron: '0 6 * * *' # ⏰ Runs daily at 06:00 UTC
   workflow_dispatch: # 🔘 Allow manual trigger
 
 permissions:
@@ -24,12 +24,30 @@ jobs:
       - name: 🔍 Get latest stable Chrome version
         id: chrome
         run: |
-          latest=$(curl -s https://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages | \
+          full_version=$(curl -s https://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages | \
             grep -A1 "Package: google-chrome-stable" | grep "Version:" | head -n1 | awk '{print $2}')
-          echo "Latest Chrome version: $latest"
-          echo "version=$latest" >> $GITHUB_OUTPUT
+
+          major_version=$(echo $full_version | cut -d'.' -f1)
+
+          echo "Full version: $full_version"
+          echo "Major version: $major_version"
+
+          echo "full_version=$full_version" >> $GITHUB_OUTPUT
+          echo "major_version=$major_version" >> $GITHUB_OUTPUT
+
+      - name: 🛑 Check if major release already exists
+        id: check_release
+        run: |
+          if gh release view v${{ steps.chrome.outputs.major_version }} >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 📥 Download latest Chrome Linux build
+        if: steps.check_release.outputs.exists == 'false'
         run: |
           mkdir -p chrome-linux
           cd chrome-linux
@@ -39,20 +57,23 @@ jobs:
           rm -rf opt usr google-chrome-stable_current_amd64.deb
 
       - name: 📥 Download dependencies
+        if: steps.check_release.outputs.exists == 'false'
         run: |
           chmod +x ./scripts/fetch-libs.sh
           ./scripts/fetch-libs.sh
 
       - name: 📦 Create tar.gz archive
+        if: steps.check_release.outputs.exists == 'false'
         run: |
-          tar -czf chrome-linux-${{ steps.chrome.outputs.version }}.tar.gz chrome-linux
+          tar -czf chrome-linux-${{ steps.chrome.outputs.full_version }}.tar.gz chrome-linux
 
       - name: 🚀 Create Release
+        if: steps.check_release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.chrome.outputs.version }}
-          name: Chrome ${{ steps.chrome.outputs.version }}
-          body: 'Automatic build of Chrome Linux bundle with required shared libraries.'
-          files: chrome-linux-${{ steps.chrome.outputs.version }}.tar.gz
+          tag_name: v${{ steps.chrome.outputs.major_version }}
+          name: Chrome ${{ steps.chrome.outputs.major_version }}
+          body: "Automatic build of Chrome Linux bundle (first release for major version ${{ steps.chrome.outputs.major_version }})\n\nFull version: ${{ steps.chrome.outputs.full_version }}"
+          files: chrome-linux-${{ steps.chrome.outputs.full_version }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
