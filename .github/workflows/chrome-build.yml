@@ -26,22 +26,24 @@ jobs:
         run: |
           full_version=$(curl -s https://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages | \
             grep -A1 "Package: google-chrome-stable" | grep "Version:" | head -n1 | awk '{print $2}')
-
           major_version=$(echo $full_version | cut -d'.' -f1)
-
-          echo "Full version: $full_version"
-          echo "Major version: $major_version"
-
           echo "full_version=$full_version" >> $GITHUB_OUTPUT
           echo "major_version=$major_version" >> $GITHUB_OUTPUT
+          echo "Detected Chrome version: $full_version (Major: $major_version)"
 
+      # 🧠 NEW: Skip release check if manually triggered
       - name: 🛑 Check if major release already exists
         id: check_release
         run: |
-          if gh release view v${{ steps.chrome.outputs.major_version }} >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual trigger detected — skipping release check."
             echo "exists=false" >> $GITHUB_OUTPUT
+          else
+            if gh release view v${{ steps.chrome.outputs.major_version }} >/dev/null 2>&1; then
+              echo "exists=true" >> $GITHUB_OUTPUT
+            else
+              echo "exists=false" >> $GITHUB_OUTPUT
+            fi
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,7 +75,10 @@ jobs:
         with:
           tag_name: v${{ steps.chrome.outputs.major_version }}
           name: Chrome ${{ steps.chrome.outputs.major_version }}
-          body: "Automatic build of Chrome Linux bundle (first release for major version ${{ steps.chrome.outputs.major_version }})\n\nFull version: ${{ steps.chrome.outputs.full_version }}"
+          body: |
+            Automatic build of Chrome Linux bundle
+            Full version: ${{ steps.chrome.outputs.full_version }}
+            Triggered manually or automatically.
           files: chrome-linux-${{ steps.chrome.outputs.full_version }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
