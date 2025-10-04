@@ -38,7 +38,7 @@ libs=(
   libavahi-common3
   libavahi-client3
   libnspr4
-  libffi8ubuntu1
+  libffi8
 )
 # 📂 Temp directory for extracting .debs
 mkdir -p temp
