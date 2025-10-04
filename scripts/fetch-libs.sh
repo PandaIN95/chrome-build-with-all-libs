@@ -13,6 +13,7 @@ libs=(
   libgtk-3-0
   libasound2
   libnss3
+  libnspr4
   libxshmfence1
   libdrm2
   libdbus-1-3
