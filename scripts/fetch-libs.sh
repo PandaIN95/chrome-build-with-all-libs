@@ -1,17 +1,10 @@
 #!/bin/bash
 
-ARCH=$1
-
-if [[ -z "$ARCH" ]]; then
-  echo "❌ Architecture argument missing! Usage: ./fetch-libs.sh [amd64|arm64]"
-  exit 1
-fi
-
 # ✅ Create target lib directory
-mkdir -p chrome-linux-$ARCH/lib
-cd chrome-linux-$ARCH || exit 1
+mkdir -p chrome-linux/lib
+cd chrome-linux || exit 1
 
-# 📦 List of required packages
+# 📦 List of required packages (matching your previous `ldd` output)
 libs=(
   libatk1.0-0
   libatk-bridge2.0-0
@@ -47,24 +40,23 @@ libs=(
   libnspr4
   libffi8
 )
-
 # 📂 Temp directory for extracting .debs
 mkdir -p temp
 cd temp || exit 1
 
 # 🔁 Download, extract, and copy .so files
 for lib in "${libs[@]}"; do
-  echo "📥 Downloading $lib for $ARCH..."
-  apt download "${lib}:${ARCH}" >/dev/null 2>&1 || echo "❌ Failed to download $lib for $ARCH"
+  echo "📥 Downloading $lib..."
+  apt download "$lib" || echo "❌ Failed to download $lib"
 
   deb=$(ls ${lib}_*.deb 2>/dev/null | head -n1)
   if [[ -f "$deb" ]]; then
     echo "📦 Extracting $deb..."
     dpkg-deb -x "$deb" extract/
-    cp -v extract/usr/lib/${ARCH}-linux-gnu/*.so* ../lib/ 2>/dev/null
-    cp -v extract/lib/${ARCH}-linux-gnu/*.so* ../lib/ 2>/dev/null
+    cp -v extract/usr/lib/x86_64-linux-gnu/*.so* ../lib/ 2>/dev/null
+    cp -v extract/lib/x86_64-linux-gnu/*.so* ../lib/ 2>/dev/null
   else
-    echo "⚠️ Skipping $lib - .deb not found for $ARCH"
+    echo "⚠️ Skipping $lib - .deb not found"
   fi
 done
 
@@ -72,4 +64,4 @@ done
 cd ..
 rm -rf temp
 
-echo "✅ All libraries have been extracted for $ARCH to chrome-linux-$ARCH/lib"
+echo "✅ All libraries have been extracted to chrome-linux/lib"
