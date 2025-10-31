@@ -55,28 +55,48 @@ jobs:
           cd chromium-linux-arm64
 
           # Download chromium-browser and chromium-chromedriver
-          apt-get download chromium-browser chromium-chromedriver
+          apt-get download chromium-browser chromium-chromedriver chromium-codecs-ffmpeg-extra
 
           # Extract all downloaded .deb files
           for deb in *.deb; do
             dpkg-deb -x "$deb" .
           done
 
-          # Move chromium binary and related files to root
+          # Move all chromium files from usr/lib/chromium-browser to root
           if [ -d "usr/lib/chromium-browser" ]; then
-            mv usr/lib/chromium-browser/* .
+            cp -r usr/lib/chromium-browser/* .
           fi
 
-          # Clean up
-          rm -rf usr snap *.deb
+          # Ensure the main chromium binary is executable and accessible
+          if [ -f "chromium-browser" ]; then
+            chmod +x chromium-browser
+          fi
+
+          # Also check for 'chromium' binary
+          if [ -f "chromium" ]; then
+            chmod +x chromium
+          fi
+
+          # Create a simple launch script if chromium-browser wrapper exists
+          if [ -f "usr/bin/chromium-browser" ]; then
+            cp usr/bin/chromium-browser ./chromium-browser.sh
+            chmod +x ./chromium-browser.sh
+          fi
+
+          # Clean up unnecessary directories but keep all binaries
+          rm -rf snap *.deb
+
+          # List contents to verify
+          echo "✅ Contents of chromium-linux-arm64:"
+          ls -lah
 
           echo "✅ Chromium ARM64 extracted successfully"
 
       - name: 📥 Download dependencies
         if: steps.check_release.outputs.exists == 'false'
         run: |
-          chmod +x ./scripts/fetch-libs-arm.sh
-          ./scripts/fetch-libs-arm.sh
+          chmod +x ./scripts/fetch-libs.sh
+          ./scripts/fetch-libs.sh
 
       - name: 📦 Create tar.gz archive
         if: steps.check_release.outputs.exists == 'false'
