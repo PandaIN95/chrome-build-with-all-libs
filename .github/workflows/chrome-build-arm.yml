@@ -56,45 +56,51 @@ jobs:
           # Install chromium snap if not already installed
           sudo snap install chromium || sudo snap refresh chromium
 
-          # Copy only the essential chromium files, avoiding problematic symlinks
           cd chromium-linux-arm64
 
-          # Copy the main chromium executable and libraries
-          sudo cp /snap/chromium/current/usr/lib/chromium-browser/chrome ./ 2>/dev/null || \
-          sudo cp /snap/chromium/current/chrome ./ 2>/dev/null || true
+          # Find the actual snap mount point
+          SNAP_PATH="/snap/chromium/current"
 
-          # Copy chromedriver if available
-          sudo cp /snap/chromium/current/usr/lib/chromium-browser/chromedriver ./chromedriver 2>/dev/null || \
-          sudo cp /snap/chromium/current/chromedriver ./chromedriver 2>/dev/null || true
+          # Copy the entire chromium-browser directory structure
+          if [ -d "$SNAP_PATH/usr/lib/chromium-browser" ]; then
+            sudo cp -r "$SNAP_PATH/usr/lib/chromium-browser/"* ./
+          elif [ -d "$SNAP_PATH/chromium" ]; then
+            sudo cp -r "$SNAP_PATH/chromium/"* ./
+          fi
 
-          # Copy all .so files (shared libraries)
-          sudo find /snap/chromium/current -name "*.so*" -type f -exec cp {} ./ \; 2>/dev/null || true
+          # Also check for files in root of snap
+          sudo cp "$SNAP_PATH/"*.so* ./ 2>/dev/null || true
+          sudo cp "$SNAP_PATH/"*.pak ./ 2>/dev/null || true
+          sudo cp "$SNAP_PATH/"*.bin ./ 2>/dev/null || true
+          sudo cp "$SNAP_PATH/chrome" ./ 2>/dev/null || true
+          sudo cp "$SNAP_PATH/chromedriver" ./ 2>/dev/null || true
 
-          # Copy necessary data files
-          sudo cp -r /snap/chromium/current/usr/lib/chromium-browser/locales ./locales 2>/dev/null || \
-          sudo cp -r /snap/chromium/current/locales ./locales 2>/dev/null || true
-
-          sudo cp /snap/chromium/current/usr/lib/chromium-browser/*.pak ./ 2>/dev/null || \
-          sudo cp /snap/chromium/current/*.pak ./ 2>/dev/null || true
-
-          sudo cp /snap/chromium/current/usr/lib/chromium-browser/*.bin ./ 2>/dev/null || \
-          sudo cp /snap/chromium/current/*.bin ./ 2>/dev/null || true
+          # Copy locales if in different location
+          if [ ! -d "locales" ]; then
+            sudo cp -r "$SNAP_PATH/locales" ./ 2>/dev/null || true
+          fi
 
           # Make binaries executable
-          chmod +x chrome chromedriver 2>/dev/null || true
+          chmod +x chrome chromedriver chromium-browser 2>/dev/null || true
 
           # Clean up snap installation
           sudo snap remove chromium
 
+          # Change ownership to current user
+          sudo chown -R $(whoami):$(whoami) .
+
           # Verify we have actual files
           echo "✅ Main executable size:"
-          ls -lh chrome 2>/dev/null || ls -lh chromium 2>/dev/null || echo "No chrome binary found"
+          ls -lh chrome 2>/dev/null || ls -lh chromium 2>/dev/null || ls -lh chromium-browser 2>/dev/null || echo "No chrome binary found"
           echo ""
           echo "✅ Total size:"
           du -sh .
           echo ""
           echo "✅ File count:"
           find . -type f | wc -l
+          echo ""
+          echo "✅ Directory structure:"
+          ls -la
 
           echo "✅ Chromium ARM64 extracted successfully"
 
