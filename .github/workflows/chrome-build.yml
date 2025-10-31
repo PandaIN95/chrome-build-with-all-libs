@@ -47,60 +47,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-<<<<<<< HEAD
-      # Build for amd64
-      - name: 🏗️ Build Chrome Bundle (amd64)
-        if: steps.check_release.outputs.exists == 'false'
-        run: |
-          ARCH=amd64
-          OUTDIR=chrome-linux-${ARCH}
-          mkdir -p $OUTDIR
-          cd $OUTDIR
-          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_${ARCH}.deb
-          dpkg-deb -x google-chrome-stable_current_${ARCH}.deb .
-          mv opt/google/chrome/* .
-          rm -rf opt usr google-chrome-stable_current_${ARCH}.deb
-          cd ..
-
-          chmod +x ./scripts/fetch-libs.sh
-          ./scripts/fetch-libs.sh $ARCH
-
-          tar -czf chrome-linux-${{ steps.chrome.outputs.full_version }}-${ARCH}.tar.gz $OUTDIR
-          echo "✅ Built amd64 bundle"
-
-      # Build for arm64 (with fallback to Chromium)
-      - name: 🏗️ Build Bundle (arm64)
-        if: steps.check_release.outputs.exists == 'false'
-        run: |
-          ARCH=arm64
-          OUTDIR=chrome-linux-${ARCH}
-          mkdir -p $OUTDIR
-          cd $OUTDIR
-          
-          URL="https://dl.google.com/linux/direct/google-chrome-stable_current_${ARCH}.deb"
-          if curl -I --silent --fail "$URL"; then
-            echo "✅ Official Google Chrome .deb found for ${ARCH}"
-            wget -q -O google-chrome-${ARCH}.deb "$URL"
-            dpkg-deb -x google-chrome-${ARCH}.deb .
-            mv opt/google/chrome/* .
-            rm -f google-chrome-${ARCH}.deb
-          else
-            echo "⚠️ Official Google Chrome not available for ${ARCH}; using Chromium instead"
-            cd ..
-            # remove created OUTDIR and create fresh
-            rm -rf $OUTDIR
-            mkdir -p $OUTDIR
-            cd $OUTDIR
-            # Use Debian/Ubuntu mirror to download Chromium .deb for arm64
-            apt-get update
-            apt-get download chromium:arm64
-            deb=$(ls chromium_*.deb | head -n1)
-            dpkg-deb -x "$deb" .
-            rm -f "$deb"
-          fi
-          cd ..
-
-=======
       - name: 📥 Download latest Chrome Linux build
         if: steps.check_release.outputs.exists == 'false'
         run: |
@@ -114,19 +60,13 @@ jobs:
       - name: 📥 Download dependencies
         if: steps.check_release.outputs.exists == 'false'
         run: |
->>>>>>> parent of 3985a41 (Enhance Chrome build workflow for multi-arch support)
           chmod +x ./scripts/fetch-libs.sh
           ./scripts/fetch-libs.sh
 
-<<<<<<< HEAD
-          tar -czf chrome-linux-${{ steps.chrome.outputs.full_version }}-${ARCH}.tar.gz $OUTDIR
-          echo "✅ Built ${ARCH} bundle"
-=======
       - name: 📦 Create tar.gz archive
         if: steps.check_release.outputs.exists == 'false'
         run: |
           tar -czf chrome-linux-${{ steps.chrome.outputs.full_version }}.tar.gz chrome-linux
->>>>>>> parent of 3985a41 (Enhance Chrome build workflow for multi-arch support)
 
       - name: 🚀 Create Release
         if: steps.check_release.outputs.exists == 'false'
@@ -135,11 +75,7 @@ jobs:
           tag_name: v${{ steps.chrome.outputs.major_version }}
           name: Chrome ${ { steps.chrome.outputs.major_version } }
           body: |
-<<<<<<< HEAD
-            Automatic build of Chrome/Chromium Linux bundle (Multi-Arch)
-=======
             Automatic build of Chrome Linux bundle
->>>>>>> parent of 3985a41 (Enhance Chrome build workflow for multi-arch support)
             Full version: ${{ steps.chrome.outputs.full_version }}
             Triggered manually or automatically.
           files: chrome-linux-${{ steps.chrome.outputs.full_version }}.tar.gz
