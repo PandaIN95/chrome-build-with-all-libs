@@ -19,7 +19,7 @@ jobs:
       - name: 📦 Install required tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget curl unzip dpkg dpkg-dev apt-utils jq
+          sudo apt-get install -y wget curl unzip dpkg dpkg-dev apt-utils
 
       - name: 🔍 Get latest stable Chrome version
         id: chrome
@@ -47,6 +47,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+<<<<<<< HEAD
       # Build for amd64
       - name: 🏗️ Build Chrome Bundle (amd64)
         if: steps.check_release.outputs.exists == 'false'
@@ -99,11 +100,33 @@ jobs:
           fi
           cd ..
 
-          chmod +x ./scripts/fetch-libs.sh
-          ./scripts/fetch-libs.sh $ARCH
+=======
+      - name: 📥 Download latest Chrome Linux build
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+          mkdir -p chrome-linux
+          cd chrome-linux
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          dpkg-deb -x google-chrome-stable_current_amd64.deb .
+          mv opt/google/chrome/* .
+          rm -rf opt usr google-chrome-stable_current_amd64.deb
 
+      - name: 📥 Download dependencies
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+>>>>>>> parent of 3985a41 (Enhance Chrome build workflow for multi-arch support)
+          chmod +x ./scripts/fetch-libs.sh
+          ./scripts/fetch-libs.sh
+
+<<<<<<< HEAD
           tar -czf chrome-linux-${{ steps.chrome.outputs.full_version }}-${ARCH}.tar.gz $OUTDIR
           echo "✅ Built ${ARCH} bundle"
+=======
+      - name: 📦 Create tar.gz archive
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+          tar -czf chrome-linux-${{ steps.chrome.outputs.full_version }}.tar.gz chrome-linux
+>>>>>>> parent of 3985a41 (Enhance Chrome build workflow for multi-arch support)
 
       - name: 🚀 Create Release
         if: steps.check_release.outputs.exists == 'false'
@@ -112,11 +135,13 @@ jobs:
           tag_name: v${{ steps.chrome.outputs.major_version }}
           name: Chrome ${ { steps.chrome.outputs.major_version } }
           body: |
+<<<<<<< HEAD
             Automatic build of Chrome/Chromium Linux bundle (Multi-Arch)
+=======
+            Automatic build of Chrome Linux bundle
+>>>>>>> parent of 3985a41 (Enhance Chrome build workflow for multi-arch support)
             Full version: ${{ steps.chrome.outputs.full_version }}
-            Architectures: amd64, arm64
-          files: |
-            chrome-linux-${{ steps.chrome.outputs.full_version }}-amd64.tar.gz
-            chrome-linux-${{ steps.chrome.outputs.full_version }}-arm64.tar.gz
+            Triggered manually or automatically.
+          files: chrome-linux-${{ steps.chrome.outputs.full_version }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
