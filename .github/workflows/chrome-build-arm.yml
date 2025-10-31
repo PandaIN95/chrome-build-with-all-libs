@@ -1,0 +1,99 @@
+name: Build Chromium Bundle (ARM64)
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # Runs daily at 06:00 UTC
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04-arm
+
+    steps:
+      - name: 📥 Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 📦 Install required tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget curl unzip dpkg dpkg-dev apt-utils
+
+      - name: 🔍 Get latest stable Chromium version
+        id: chromium
+        run: |
+          # Install chromium to get version
+          sudo apt-get install -y chromium-browser
+          full_version=$(chromium-browser --version | awk '{print $2}')
+          major_version=$(echo $full_version | cut -d'.' -f1)
+          echo "full_version=$full_version" >> $GITHUB_OUTPUT
+          echo "major_version=$major_version" >> $GITHUB_OUTPUT
+          echo "Detected Chromium version: $full_version (Major: $major_version)"
+
+      - name: 🛑 Check if major release already exists
+        id: check_release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual trigger detected — skipping release check."
+            echo "exists=false" >> $GITHUB_OUTPUT
+          else
+            if gh release view v${{ steps.chromium.outputs.major_version }}-arm64 >/dev/null 2>&1; then
+              echo "exists=true" >> $GITHUB_OUTPUT
+            else
+              echo "exists=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📥 Download and package Chromium ARM64 build
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+          mkdir -p chromium-linux-arm64
+          cd chromium-linux-arm64
+
+          # Download chromium-browser and chromium-chromedriver
+          apt-get download chromium-browser chromium-chromedriver
+
+          # Extract all downloaded .deb files
+          for deb in *.deb; do
+            dpkg-deb -x "$deb" .
+          done
+
+          # Move chromium binary and related files to root
+          if [ -d "usr/lib/chromium-browser" ]; then
+            mv usr/lib/chromium-browser/* .
+          fi
+
+          # Clean up
+          rm -rf usr snap *.deb
+
+          echo "✅ Chromium ARM64 extracted successfully"
+
+      - name: 📥 Download dependencies
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+          chmod +x ./scripts/fetch-libs-arm.sh
+          ./scripts/fetch-libs-arm.sh
+
+      - name: 📦 Create tar.gz archive
+        if: steps.check_release.outputs.exists == 'false'
+        run: |
+          tar -czf chromium-linux-arm64-${{ steps.chromium.outputs.full_version }}.tar.gz chromium-linux-arm64
+
+      - name: 🚀 Create Release
+        if: steps.check_release.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.chromium.outputs.major_version }}-arm64
+          name: Chromium ${{ steps.chromium.outputs.major_version }} (ARM64)
+          body: |
+            Automatic build of Chromium Linux ARM64 bundle
+            Full version: ${{ steps.chromium.outputs.full_version }}
+            Architecture: ARM64 (aarch64)
+            Triggered manually or automatically.
+          files: chromium-linux-arm64-${{ steps.chromium.outputs.full_version }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
