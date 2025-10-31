@@ -52,24 +52,49 @@ jobs:
         if: steps.check_release.outputs.exists == 'false'
         run: |
           mkdir -p chromium-linux-arm64
+
+          # Install chromium snap if not already installed
+          sudo snap install chromium || sudo snap refresh chromium
+
+          # Copy only the essential chromium files, avoiding problematic symlinks
           cd chromium-linux-arm64
 
-          # Download chromium-browser snap package
-          sudo snap install chromium
+          # Copy the main chromium executable and libraries
+          sudo cp /snap/chromium/current/usr/lib/chromium-browser/chrome ./ 2>/dev/null || \
+          sudo cp /snap/chromium/current/chrome ./ 2>/dev/null || true
 
-          # Copy the actual chromium files from snap
-          sudo cp -rL /snap/chromium/current/* .
+          # Copy chromedriver if available
+          sudo cp /snap/chromium/current/usr/lib/chromium-browser/chromedriver ./chromedriver 2>/dev/null || \
+          sudo cp /snap/chromium/current/chromedriver ./chromedriver 2>/dev/null || true
 
-          # Make sure binaries are executable
-          chmod +x chromium chrome chrome-sandbox chromedriver 2>/dev/null || true
+          # Copy all .so files (shared libraries)
+          sudo find /snap/chromium/current -name "*.so*" -type f -exec cp {} ./ \; 2>/dev/null || true
+
+          # Copy necessary data files
+          sudo cp -r /snap/chromium/current/usr/lib/chromium-browser/locales ./locales 2>/dev/null || \
+          sudo cp -r /snap/chromium/current/locales ./locales 2>/dev/null || true
+
+          sudo cp /snap/chromium/current/usr/lib/chromium-browser/*.pak ./ 2>/dev/null || \
+          sudo cp /snap/chromium/current/*.pak ./ 2>/dev/null || true
+
+          sudo cp /snap/chromium/current/usr/lib/chromium-browser/*.bin ./ 2>/dev/null || \
+          sudo cp /snap/chromium/current/*.bin ./ 2>/dev/null || true
+
+          # Make binaries executable
+          chmod +x chrome chromedriver 2>/dev/null || true
 
           # Clean up snap installation
           sudo snap remove chromium
 
-          # List contents to verify we have actual files, not symlinks
-          echo "✅ Contents of chromium-linux-arm64:"
-          ls -lh | head -20
+          # Verify we have actual files
+          echo "✅ Main executable size:"
+          ls -lh chrome 2>/dev/null || ls -lh chromium 2>/dev/null || echo "No chrome binary found"
+          echo ""
+          echo "✅ Total size:"
           du -sh .
+          echo ""
+          echo "✅ File count:"
+          find . -type f | wc -l
 
           echo "✅ Chromium ARM64 extracted successfully"
 
