@@ -13,6 +13,11 @@ libs=(
   libgtk-3-0
   libasound2
   libnss3
+  libnssutil3
+  libsmime3
+  libnspr4
+  libplc4
+  libplds4
   libxshmfence1
   libdrm2
   libdbus-1-3
@@ -37,8 +42,8 @@ libs=(
   libatspi2.0-0
   libavahi-common3
   libavahi-client3
-  libnspr4
   libffi8
+  libsqlite3-0
 )
 # 📂 Temp directory for extracting .debs
 mkdir -p temp
